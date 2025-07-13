@@ -9,10 +9,11 @@ import solara
 import mesa
 import mesa.visualization.components.altair_components
 import mesa.visualization.components.matplotlib_components
-from mesa.space import MultiGrid
+from mesa.space import MultiGrid, PropertyLayer
 from mesa.visualization.components.altair_components import make_altair_space
 from mesa.visualization.components.matplotlib_components import make_mpl_space_component
 from mesa.visualization.solara_viz import (
+    ModelCreator,
     Slider,
     SolaraViz,
     UserInputs,
@@ -94,13 +95,17 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         assert slider_int.step is None
 
 
-def test_call_space_drawer(mocker):  # noqa: D103
+def test_call_space_drawer(mocker):
+    """Test the call to space drawer."""
     mock_space_matplotlib = mocker.spy(
         mesa.visualization.components.matplotlib_components, "SpaceMatplotlib"
     )
 
     mock_space_altair = mocker.spy(
         mesa.visualization.components.altair_components, "SpaceAltair"
+    )
+    mock_chart_property_layer = mocker.spy(
+        mesa.visualization.components.altair_components, "chart_property_layers"
     )
 
     class MockAgent(mesa.Agent):
@@ -110,7 +115,12 @@ def test_call_space_drawer(mocker):  # noqa: D103
     class MockModel(mesa.Model):
         def __init__(self, seed=None):
             super().__init__(seed=seed)
-            self.grid = MultiGrid(width=10, height=10, torus=True)
+            layer1 = PropertyLayer(
+                name="sugar", width=10, height=10, default_value=10.0
+            )
+            self.grid = MultiGrid(
+                width=10, height=10, torus=True, property_layers=layer1
+            )
             a = MockAgent(self)
             self.grid.place_agent(a, (5, 5))
 
@@ -135,13 +145,21 @@ def test_call_space_drawer(mocker):  # noqa: D103
 
     # specify no space should be drawn
     mock_space_matplotlib.reset_mock()
-    solara.render(SolaraViz(model))
+    solara.render(SolaraViz(model, components="default"))
     # should call default method with class instance and agent portrayal
     assert mock_space_matplotlib.call_count == 0
     assert mock_space_altair.call_count == 1  # altair is the default method
 
     # checking if SpaceAltair is working as intended with post_process
-
+    propertylayer_portrayal = {
+        "sugar": {
+            "colormap": "pastel1",
+            "alpha": 0.75,
+            "colorbar": True,
+            "vmin": 0,
+            "vmax": 10,
+        }
+    }
     mock_post_process = mocker.MagicMock()
     solara.render(
         SolaraViz(
@@ -149,8 +167,8 @@ def test_call_space_drawer(mocker):  # noqa: D103
             components=[
                 make_altair_space(
                     agent_portrayal,
-                    propertylayer_portrayal,
-                    mock_post_process,
+                    post_process=mock_post_process,
+                    propertylayer_portrayal=propertylayer_portrayal,
                 )
             ],
         )
@@ -158,13 +176,18 @@ def test_call_space_drawer(mocker):  # noqa: D103
 
     args, kwargs = mock_space_altair.call_args
     assert args == (model, agent_portrayal)
-    assert kwargs == {"post_process": mock_post_process}
+    assert kwargs == {
+        "post_process": mock_post_process,
+        "propertylayer_portrayal": propertylayer_portrayal,
+    }
     mock_post_process.assert_called_once()
+    assert mock_chart_property_layer.call_count == 1
     assert mock_space_matplotlib.call_count == 0
 
     mock_space_altair.reset_mock()
     mock_space_matplotlib.reset_mock()
     mock_post_process.reset_mock()
+    mock_chart_property_layer.reset_mock()
 
     # specify a custom space method
     class AltSpace:
@@ -178,7 +201,7 @@ def test_call_space_drawer(mocker):  # noqa: D103
 
     # check voronoi space drawer
     voronoi_model = mesa.Model()
-    voronoi_model.grid = mesa.experimental.cell_space.VoronoiGrid(
+    voronoi_model.grid = mesa.discrete_space.VoronoiGrid(
         centroids_coordinates=[(0, 1), (0, 0), (1, 0)],
     )
     solara.render(
@@ -186,7 +209,8 @@ def test_call_space_drawer(mocker):  # noqa: D103
     )
 
 
-def test_slider():  # noqa: D103
+def test_slider():
+    """Test the Slider component."""
     slider_float = Slider("Agent density", 0.8, 0.1, 1.0, 0.1)
     assert slider_float.is_float_slider
     assert slider_float.value == 0.8
@@ -200,7 +224,9 @@ def test_slider():  # noqa: D103
     assert slider_dtype_float.is_float_slider
 
 
-def test_model_param_checks():  # noqa: D103
+def test_model_param_checks():
+    """Test the model parameter checks."""
+
     class ModelWithOptionalParams:
         def __init__(self, required_param, optional_param=10):
             pass
@@ -246,6 +272,36 @@ def test_model_param_checks():  # noqa: D103
     # Test empty params dict raises ValueError if required params
     with pytest.raises(ValueError, match="Missing required model parameter"):
         _check_model_params(ModelWithOnlyRequired.__init__, {})
+
+
+def test_model_creator():  # noqa: D103
+    class ModelWithRequiredParam:
+        def __init__(self, param1):
+            pass
+
+    solara.render(
+        ModelCreator(
+            solara.reactive(ModelWithRequiredParam(param1="mock")),
+            user_params={"param1": 1},
+        ),
+        handle_error=False,
+    )
+
+    solara.render(
+        ModelCreator(
+            solara.reactive(ModelWithRequiredParam(param1="mock")),
+            user_params={"param1": Slider("Param1", 10, 10, 100, 1)},
+        ),
+        handle_error=False,
+    )
+
+    with pytest.raises(ValueError, match="Missing required model parameter"):
+        solara.render(
+            ModelCreator(
+                solara.reactive(ModelWithRequiredParam(param1="mock")), user_params={}
+            ),
+            handle_error=False,
+        )
 
 
 # test that _check_model_params raises ValueError when *args are present
