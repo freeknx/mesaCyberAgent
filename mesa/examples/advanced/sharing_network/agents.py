@@ -54,7 +54,7 @@ class Defender(mesa.Agent):
         self.rosi = 0
         self.gain = round((self.wealth - self.contribution + self.rosi), 2)
         self.all_nodes = []
-        self.G = self.model.G #graph type
+        self.G = self.model.network #graph type
         self.id = self.unique_id
         self.roa = 0
         self.friends = []
@@ -198,7 +198,8 @@ class Defender(mesa.Agent):
         
         if(self.i < 2):
             #gets initial friend list of agaent
-            neighbors_nodes = self.model.grid.get_neighbors(self.pos, include_center=False)
+            neighbors_nodes = self.model.network.adj[self.unique_id]
+            #neighbors_nodes = self.model.grid.get_neighbors(self.pos, include_center=False)
             self.friends = self.model.grid.get_cell_list_contents(neighbors_nodes)
             self.alpha = self.alpha
         else:

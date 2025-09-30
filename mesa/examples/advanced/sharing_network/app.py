@@ -112,7 +112,16 @@ def plot_network(model):
 
     colors.extend([agent.altruism for agent in model.agents])
     sizes.extend([agent.wealth/20 for agent in model.agents])
+    for node in g.nodes:
+        print(node)
+        print(g.nodes[node])
+        print("\n")
+    # print(list(g.nodes))
+    # print(g.nodes[42])
+    # g.nodes[42]["block"] = 6 
     
+    # for agent in model.agents:
+    #     print(agent.unique_id)
 
     nx.draw(
         g,
@@ -123,6 +132,11 @@ def plot_network(model):
         labels=labels,
         ax=ax,
     )
+    g.remove_node(42)
+    for node in g.nodes:
+        print(node)
+        print(g.nodes[node])
+        print("\n")
 
     solara.FigureMatplotlib(fig)
 
