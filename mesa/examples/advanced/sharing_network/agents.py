@@ -193,13 +193,13 @@ class Defender(mesa.Agent):
     #manages edge connections in the graph
     def friend_manager(self):
         #updates all nodes in the network
-        self.all_nodes = self.model.grid.get_all_cell_contents()
+        self.all_nodes = list(self.model.agents)
         self.neighValue.append(self.cmValue + self.attValue)
         
         if(self.i < 2):
             #gets initial friend list of agaent
-            neighbors_nodes = self.model.network.adj[self.unique_id]
-            #neighbors_nodes = self.model.grid.get_neighbors(self.pos, include_center=False)
+            #neighbors_nodes = self.model.network.adj[self.unique_id]
+            neighbors_nodes = self.model.grid.get_neighbors(self.unique_id, include_center=False)
             self.friends = self.model.grid.get_cell_list_contents(neighbors_nodes)
             self.alpha = self.alpha
         else:
@@ -275,8 +275,6 @@ class Defender(mesa.Agent):
             self.altruism = sum(tempAltList)/len(tempAltList)
         
         if len(self.friends) > 0:
-            
-            
             #calculate probability of contribution
             self.altlist.append(self.altruism)
             if(self.k <= 0): #if there are no freeriders, contribute

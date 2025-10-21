@@ -41,18 +41,13 @@ class DefenderNetworkModel(mesa.Model):
         self.num_agents = num_groups*num_members
         self.num_nodes = self.num_agents
         self.network = nx.planted_partition_graph(num_groups, num_members, 0.5, 0.1, seed=seed)
-        #self.network = nx.Graph()
-        #self.G = nx.planted_partition_graph(num_groups, num_members, 0.5, 0.1, seed=seed)
         self.grid = NetworkGrid(self.network)
-        # TODO schedule may no longer be necessary
-        #self.schedule = RandomActivation(self)
         self.rosi = 0
         self.datacollector = DataCollector(
             model_reporters={"prob_of_contr": self.prob_of_contr, "gain": self.gain, "wealth": self.wealth, "freeriders":self.freeriders, "friends":self.friends, "altruism":self.altruism, "contribution_value":self.contribution_value, "cmlist":self.cmlist, "attlist":self.attlist, "alpha": self.alpha, "beta": self.beta},
             agent_reporters={"Contribution %": lambda _: _.prob_of_contr, "Altruism": lambda _: _.gain}
         )
 
-        argies = [prob_add_friend, punish, alphaM, betaM, punish_cost, penalty]
         Defender.create_agents(self, self.num_agents, prob_add_friend, punish, alphaM, betaM, punish_cost, penalty)
 
         ##list_of_random_nodes = self.random.sample(self.G.nodes(), self.num_agents)
@@ -60,24 +55,9 @@ class DefenderNetworkModel(mesa.Model):
             agent.unique_id for agent in self.agents
         ]
         self.network.add_nodes_from(agent_ids)
-        #removes empty partition element at the end of the planted_partition_graph nodes list
-        gen_list = {
-            'block': 6,
-            'agent': []
-        }
+        #Add values to the empty node at the end of the agent list
         self.network.nodes[self.num_agents]['block'] = 6
         self.network.nodes[self.num_agents]['agent'] = []
-
-        # Create agents
-        #TODO redo agent creation
-        """
-        for i in range(self.num_agents):
-            a = Defender(i, self, prob_add_friend, punish, alphaM, betaM, punish_cost, penalty)
-            self.network.add_nodes_from(agent_ids)
-            #self.schedule.add(a)
-            # Add the agent to a random node
-            self.grid.place_agent(a, list_of_random_nodes[i])
-        """
 
         self.running = True
         self.datacollector.collect(self)
@@ -140,9 +120,6 @@ class DefenderNetworkModel(mesa.Model):
     def beta(self):
         y = [agent.beta for agent in self.agents]
         return y
-    
-    # def graph(self):
-    #     return self.G
 
     def run_model(self, n):
         for i in range(n):
